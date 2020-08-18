@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 using PastebinApiWrapper.Models;
 using PastebinApiWrapper.Models.Enums;
+using PastebinApiWrapper.Models.SerializeModels;
 
 namespace PastebinApiWrapper
 {
@@ -42,21 +44,30 @@ namespace PastebinApiWrapper
 
         #region Public Methods
         /// <summary>
-        /// Create new paste
+        /// Create new paste as guest
         /// </summary>
-        /// <param name="pasteInfo">Paste information</param>
+        /// <param name="pasteInfo">Paste information. Required fields: <seealso cref="PasteInfo.Private"/>, <see cref="PasteInfo.Name"/>,
+        /// <seealso cref="PasteInfo.ExpireDate"/>, <seealso cref="PasteInfo.Language"/>, <seealso cref="PasteInfo.Code"/></param>
         /// <returns>Paste information <seealso cref="PasteInfo"/></returns>
-        public async Task<PasteInfo> CreateNewPasteAsync(PasteInfo pasteInfo)
+        public async Task<PasteInfo> CreateNewPasteAsGuestAsync(PasteInfo pasteInfo)
+        {
+            return await CreateNewPasteAsUserAsync(pasteInfo, "").ConfigureAwait(false);
+        }
+        /// <summary>
+        /// Create new paste as user
+        /// </summary>
+        /// <param name="pasteInfo">Paste information. Required fields: <seealso cref="PasteInfo.Private"/>, <see cref="PasteInfo.Name"/>,
+        /// <seealso cref="PasteInfo.ExpireDate"/>, <seealso cref="PasteInfo.Language"/>, <seealso cref="PasteInfo.Code"/></param>
+        /// <returns>Paste information <seealso cref="PasteInfo"/></returns>
+        public async Task<PasteInfo> CreateNewPasteAsUserAsync(PasteInfo pasteInfo, string userApiKey)
         {
             var baseAddress = new Uri("https://pastebin.com/api/api_post.php");
-            var cookieContainer = new CookieContainer();
-            using (var handler = new HttpClientHandler() { CookieContainer = cookieContainer })
-            using (var client = new HttpClient(handler) { BaseAddress = baseAddress })
+            using (var client = new HttpClient())
             {
                 var content = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("api_option", "paste"),
-                    new KeyValuePair<string, string>("api_user_key", UserApiKey),
+                    new KeyValuePair<string, string>("api_user_key", userApiKey),
                     new KeyValuePair<string, string>("api_paste_private", ((int)pasteInfo.Private).ToString()),
                     new KeyValuePair<string, string>("api_paste_name", pasteInfo.Name),
                     new KeyValuePair<string, string>("api_paste_expire_date", ConvertPasteExpireDateToString(pasteInfo.ExpireDate)),
@@ -65,7 +76,6 @@ namespace PastebinApiWrapper
                     new KeyValuePair<string, string>("api_paste_code", pasteInfo.Code)
                 });
 
-                cookieContainer.Add(baseAddress, new Cookie("CookieName", "cookie_value"));
                 var result = await client.PostAsync(baseAddress, content).ConfigureAwait(false);
 
                 if (result.IsSuccessStatusCode)
@@ -75,6 +85,84 @@ namespace PastebinApiWrapper
             }
 
             return pasteInfo;
+        }
+        /// <summary>
+        /// Generate user API key
+        /// </summary>
+        public async Task<string> CreateUserApiKey(string username, string password)
+        {
+            var baseAddress = new Uri("https://pastebin.com/api/api_login.php");
+            using (var client = new HttpClient() { BaseAddress = baseAddress })
+            {
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("api_dev_key", DeveloperApiKey),
+                    new KeyValuePair<string, string>("api_user_name", username),
+                    new KeyValuePair<string, string>("api_user_password", password)
+                });
+
+                var result = await client.PostAsync(baseAddress, content).ConfigureAwait(false);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    UserApiKey = await result.Content.ReadAsStringAsync();
+                    return UserApiKey;
+                }
+            }
+            throw new HttpRequestException("Something went wrong");
+        }
+        /// <summary>
+        /// Get list of user`s pastes
+        /// </summary>
+        /// <param name="resultLimit">The number of pastes that will be returned</param>
+        public async Task<List<PasteInfo>> GetUserPastes(int resultsLimit = 50)
+        {
+            var baseUrl = new Uri("https://pastebin.com/api/api_post.php");
+
+            using (var client = new HttpClient())
+            {
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("api_option", "list"),
+                    new KeyValuePair<string, string>("api_user_key", UserApiKey),
+                    new KeyValuePair<string, string>("api_dev_key", DeveloperApiKey),
+                    new KeyValuePair<string, string>("api_results_limit", resultsLimit.ToString())
+                });
+
+                var result = await client.PostAsync(baseUrl, content).ConfigureAwait(false);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    var xml = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    using (var sr = new StringReader(xml))
+                    {
+                        var formatter = new XmlSerializer(typeof(List<XMLResponse>));
+
+                        var returnedPastes = formatter.Deserialize(sr) as List<XMLResponse>;
+                        var userPastes = new List<PasteInfo>();
+
+                        returnedPastes.ForEach(p =>
+                        {
+                            userPastes.Add(new PasteInfo
+                            {
+                                Key = p.paste_key,
+                                Name = p.paste_title,
+                                Link = p.paste_url,
+                                Views = (int)p.paste_hits,
+                                Size = p.paste_size,
+                                Publication = new DateTime((long)p.paste_date),
+                                Remove = new DateTime((long)p.paste_expire_date),
+                                Language = (PasteLanguage)Enum.Parse(typeof(PasteLanguage), p.paste_format_short),
+                                Private = (PastePrivate)Enum.ToObject(typeof(PastePrivate), p.paste_private)
+                            });
+                        });
+
+                        return userPastes;
+                    }
+                }
+            }
+            throw new Exception("Something went wrong");
         }
         #endregion
 

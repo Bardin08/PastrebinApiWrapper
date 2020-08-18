@@ -1,4 +1,6 @@
-﻿using PastebinApiWrapper.Models.Enums;
+﻿using System;
+
+using PastebinApiWrapper.Models.Enums;
 
 namespace PastebinApiWrapper.Models
 {
@@ -7,6 +9,10 @@ namespace PastebinApiWrapper.Models
     /// </summary>
     public class PasteInfo
     {
+        /// <summary>
+        /// Paste unique key
+        /// </summary>
+        public string Key { get; set; }
         /// <summary>
         /// Paste name
         /// </summary>
@@ -20,6 +26,22 @@ namespace PastebinApiWrapper.Models
         /// </summary>
         public string Link { get; set; }
         /// <summary>
+        /// Paste views
+        /// </summary>
+        public int Views { get; set; }
+        /// <summary>
+        /// Paste size in kB
+        /// </summary>
+        public int Size { get; set; }
+        /// <summary>
+        /// Paste publication date
+        /// </summary>
+        public DateTime Publication { get; set; }
+        /// <summary>
+        /// Paste removal date
+        /// </summary>
+        public DateTime Remove { get; set; }
+        /// <summary>
         /// Paste expire date
         /// </summary>
         public PasteExpireDate ExpireDate { get; set; }
@@ -31,5 +53,7 @@ namespace PastebinApiWrapper.Models
         /// Paste private
         /// </summary>
         public PastePrivate Private { get; set; }
+
+
     }
 }
