@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 
 using PastebinApiWrapper.Models;
@@ -134,15 +137,18 @@ namespace PastebinApiWrapper
                 if (result.IsSuccessStatusCode)
                 {
                     var xml = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var sb = new StringBuilder();
+                    sb.Append("<pastes> ").Append(xml).Append(" </pastes>");
 
-                    using (var sr = new StringReader(xml))
+
+                    using (var sr = new StringReader(sb.ToString()))
                     {
-                        var formatter = new XmlSerializer(typeof(List<XMLResponse>));
+                        var formatter = new XmlSerializer(typeof(pastes));
 
-                        var returnedPastes = formatter.Deserialize(sr) as List<XMLResponse>;
+                        var returnedPastes = formatter.Deserialize(sr) as pastes;
                         var userPastes = new List<PasteInfo>();
 
-                        returnedPastes.ForEach(p =>
+                        returnedPastes.paste.ToList().ForEach(p =>
                         {
                             userPastes.Add(new PasteInfo
                             {
