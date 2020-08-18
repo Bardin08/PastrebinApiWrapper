@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -115,7 +116,7 @@ namespace PastebinApiWrapper
             throw new HttpRequestException("Something went wrong");
         }
         /// <summary>
-        /// Get list of user`s pastes
+        /// Get list of user`s pastes info
         /// </summary>
         /// <param name="resultLimit">The number of pastes that will be returned</param>
         public async Task<List<PasteInfo>> GetUserPastes(int resultsLimit = 50)
@@ -169,6 +170,33 @@ namespace PastebinApiWrapper
                 }
             }
             throw new Exception("Something went wrong");
+        }
+        /// <summary>
+        /// Get paste code in raw version
+        /// </summary>
+        /// <param name="pasteInfo">Paste information. Require field <seealso cref="PasteInfo.Key"/></param>
+        public async Task<PasteInfo> GetRawPaste(PasteInfo pasteInfo)
+        {
+            var baseAddress = new Uri("https://pastebin.com/api/api_raw.php");
+            using (var client = new HttpClient() { BaseAddress = baseAddress })
+            {
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("api_option", "show_paste"),
+                    new KeyValuePair<string, string>("api_user_key", UserApiKey),
+                    new KeyValuePair<string, string>("api_dev_key", DeveloperApiKey),
+                    new KeyValuePair<string, string>("api_paste_key", pasteInfo.Key)
+                });
+
+                var result = await client.PostAsync(baseAddress, content).ConfigureAwait(false);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    pasteInfo.Code = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return pasteInfo;
+                }
+            }
+            throw new HttpRequestException("Something went wrong");
         }
         #endregion
 
