@@ -225,6 +225,49 @@ namespace PastebinApiWrapper
             throw new HttpRequestException("Something went wrong");
 
         }
+        public async Task<UserInfo> GetUserInfoAndSettings()
+        {
+            var baseUrl = new Uri("https://pastebin.com/api/api_post.php");
+
+            using (var client = new HttpClient())
+            {
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("api_option", "userdetails"),
+                    new KeyValuePair<string, string>("api_user_key", UserApiKey),
+                    new KeyValuePair<string, string>("api_dev_key", DeveloperApiKey),
+                });
+
+                var result = await client.PostAsync(baseUrl, content).ConfigureAwait(false);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    var xml = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    using (var sr = new StringReader(xml))
+                    {
+                        var formatter = new XmlSerializer(typeof(user));
+
+                        var parsedUserInfo = formatter.Deserialize(sr) as user;
+
+                        return new UserInfo
+                        {
+                            Name = parsedUserInfo.user_name,
+                            FormatShort = parsedUserInfo.user_format_short,
+                            AvatarUrl = parsedUserInfo.user_avatar_url,
+                            Website = parsedUserInfo.user_website,
+                            Email = parsedUserInfo.user_email,
+                            Location = parsedUserInfo.user_location,
+                            Private = (AccountPrivate)Enum.ToObject(typeof(AccountPrivate), parsedUserInfo.user_private),
+                            AccountType = (AccountType)Enum.ToObject(typeof(AccountType), parsedUserInfo.user_account_type)
+                        };
+                    }
+                }
+            }
+            throw new Exception("Something went wrong");
+
+        }
+
         #endregion
 
         #region Private Methods
