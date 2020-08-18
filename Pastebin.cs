@@ -198,6 +198,33 @@ namespace PastebinApiWrapper
             }
             throw new HttpRequestException("Something went wrong");
         }
+        /// <summary>
+        /// Delete user`s paste
+        /// </summary>
+        /// <param name="pasteInfo">Paste info/ Require field <seealso cref="PasteInfo.Key"/></param>
+        public async Task<string> DeletePaste(PasteInfo pasteInfo)
+        {
+            var baseAddress = new Uri("https://pastebin.com/api/api_post.php");
+            using (var client = new HttpClient() { BaseAddress = baseAddress })
+            {
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("api_option", "delete"),
+                    new KeyValuePair<string, string>("api_user_key", UserApiKey),
+                    new KeyValuePair<string, string>("api_dev_key", DeveloperApiKey),
+                    new KeyValuePair<string, string>("api_paste_key", pasteInfo.Key)
+                });
+
+                var result = await client.PostAsync(baseAddress, content).ConfigureAwait(false);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    return await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                }
+            }
+            throw new HttpRequestException("Something went wrong");
+
+        }
         #endregion
 
         #region Private Methods
